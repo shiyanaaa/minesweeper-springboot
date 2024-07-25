@@ -10,4 +10,7 @@ public interface CellService extends IService<Cell> {
     boolean init(Integer row, Integer col);
 
     List<Cell> region(Integer startX, Integer startY, Integer rowNum, Integer colNum);
+
+
+    boolean updateOpen(String id, Integer set, Integer get);
 }

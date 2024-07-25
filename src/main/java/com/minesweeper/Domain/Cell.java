@@ -8,7 +8,7 @@ import lombok.Data;
 public class Cell {
     @TableId(value = "id", type = IdType.ASSIGN_ID)
     private String id;
-    private boolean open;
+    private Integer open;
     private Integer row;
     private Integer col;
     private Integer value;

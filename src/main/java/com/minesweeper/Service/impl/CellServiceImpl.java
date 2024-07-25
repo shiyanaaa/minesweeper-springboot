@@ -1,15 +1,18 @@
 package com.minesweeper.Service.impl;
 
+import cn.hutool.core.collection.ListUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.minesweeper.Domain.Cell;
+import com.minesweeper.Enum.CellOpenEnum;
+import com.minesweeper.Enum.CellValueEnum;
 import com.minesweeper.Mapper.CellMapper;
 import com.minesweeper.Service.CellService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
-
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 @Service
@@ -19,7 +22,7 @@ public class CellServiceImpl extends ServiceImpl<CellMapper, Cell> implements Ce
     public void removeAll() {
         super.remove(null);
     }
-
+    @Resource CellMapper cellMapper;
     @Override
     public boolean init(Integer row, Integer col) {
 //        创建row*col个cell
@@ -28,18 +31,21 @@ public class CellServiceImpl extends ServiceImpl<CellMapper, Cell> implements Ce
             List<Cell> cellList = new ArrayList<>();
             for (int j = 0; j < col; j++) {
                 Cell cell=new Cell();
+                cell.setId(IdWorker.getIdStr());
                 cell.setCol(j);
                 cell.setRow(i);
-                cell.setValue(0);
-                cell.setOpen(false);
+                cell.setValue(CellValueEnum.Empty);
+                cell.setOpen(CellOpenEnum.CLOSE);
                 cellList.add(cell);
             }
             cells.add(cellList);
         }
         this.bomb(cells, row, col, row * col / 10);
         this.retrieval(cells);
-        Collection<Cell> allList= this.flatten(cells);
-        return super.saveBatch(allList);
+        List<Cell> allList= this.flatten(cells);
+        List<List<Cell>> partition = ListUtil.partition(allList, 10000);
+        partition.forEach(list -> cellMapper.insertBatch(list));
+        return true;
 
     }
 
@@ -50,6 +56,17 @@ public class CellServiceImpl extends ServiceImpl<CellMapper, Cell> implements Ce
         wrapper.between("col",startY,startY+colNum);
         return super.list(wrapper);
 
+    }
+
+
+
+    @Override
+    public boolean updateOpen(String id, Integer set, Integer get) {
+        UpdateWrapper<Cell> updateWrapper=new UpdateWrapper<>();
+        updateWrapper.eq("id",id);
+        updateWrapper.eq("open",get);
+        updateWrapper.set("open",set);
+        return super.update(updateWrapper);
     }
 
     private void bomb(List<List<Cell>> cells, Integer row, Integer col, Integer num){
@@ -86,8 +103,8 @@ public class CellServiceImpl extends ServiceImpl<CellMapper, Cell> implements Ce
 
     }
 //    展开List<List<Cell>>为List<Cell>
-    private Collection<Cell> flatten(List<List<Cell>> cells){
-        Collection<Cell> cellList=new ArrayList<>();
+    private List<Cell> flatten(List<List<Cell>> cells){
+        List<Cell> cellList=new ArrayList<>();
         for (List<Cell> cell : cells) {
             cellList.addAll(cell);
         }
