@@ -21,31 +21,34 @@ public class CellController {
     public Res init() {
         cellService.removeAll();
 
-        return cellService.init(1000, 1000) ? Res.success() : Res.fail();
+        return cellService.init(100, 100) ? Res.success() : Res.fail();
     }
 
-    @GetMapping("/region/{startX}-{startY}/{rowNum}-{colNum}")
-    public Res region(@PathVariable Integer colNum, @PathVariable Integer rowNum, @PathVariable Integer startX, @PathVariable Integer startY) {
-        List<Cell> cells = cellService.region(startX, startY, rowNum, colNum);
+    @GetMapping("/region")
+    public Res region(Integer col, Integer row, Integer startX,Integer startY) {
+        List<Cell> cells = cellService.region(startX, startY, row, col);
 
         return cells.size() > 0 ? Res.success(cells) : Res.fail();
     }
 
     @PostMapping("/open/{id}")
     public Res open(@PathVariable String id) {
+        long stime = System.currentTimeMillis();
+        boolean res=cellService.updateOpen(id, CellOpenEnum.OPEN, CellOpenEnum.CLOSE,true);
 
-
-        return cellService.updateOpen(id, CellOpenEnum.OPEN, CellOpenEnum.CLOSE) ? Res.success() : Res.fail("更新失败",cellService.getById(id));
+        long etime = System.currentTimeMillis();
+        System.out.printf("执行时长：%d 毫秒.", (etime - stime));
+        return  res? Res.success() : Res.fail("更新失败",cellService.getById(id));
     }
 
     @PostMapping("/flag/{id}")
     public Res flag(@PathVariable String id) {
-        return cellService.updateOpen(id, CellOpenEnum.Flag, CellOpenEnum.CLOSE) ? Res.success() : Res.fail("更新失败",cellService.getById(id));
+        return cellService.updateOpen(id, CellOpenEnum.Flag, CellOpenEnum.CLOSE,true) ? Res.success() : Res.fail("更新失败",cellService.getById(id));
     }
 
     @PostMapping("/cancel_flag/{id}")
     public Res cancelFlag(@PathVariable String id) {
-        return cellService.updateOpen(id, CellOpenEnum.CLOSE, CellOpenEnum.Flag) ? Res.success() : Res.fail("更新失败",cellService.getById(id));
+        return cellService.updateOpen(id, CellOpenEnum.CLOSE, CellOpenEnum.Flag,true) ? Res.success() : Res.fail("更新失败",cellService.getById(id));
 
     }
 

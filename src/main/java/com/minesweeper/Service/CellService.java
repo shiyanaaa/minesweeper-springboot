@@ -12,5 +12,5 @@ public interface CellService extends IService<Cell> {
     List<Cell> region(Integer startX, Integer startY, Integer rowNum, Integer colNum);
 
 
-    boolean updateOpen(String id, Integer set, Integer get);
+    boolean updateOpen(String id, Integer set, Integer get,boolean isRoot);
 }
