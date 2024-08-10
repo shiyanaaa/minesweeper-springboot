@@ -1,9 +1,12 @@
 package com.minesweeper.Service.impl;
 
 import cn.hutool.core.collection.ListUtil;
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson.serializer.SerializerFeature;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.minesweeper.Controller.EchoChannel;
 import com.minesweeper.Domain.Cell;
 import com.minesweeper.Enum.CellOpenEnum;
 import com.minesweeper.Enum.CellValueEnum;
@@ -13,10 +16,7 @@ import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 @Service
 public class CellServiceImpl extends ServiceImpl<CellMapper, Cell> implements CellService {
@@ -25,7 +25,8 @@ public class CellServiceImpl extends ServiceImpl<CellMapper, Cell> implements Ce
     public void removeAll() {
         super.remove(null);
     }
-
+    @Resource
+    EchoChannel echoChannel;
     @Resource
     CellMapper cellMapper;
 
@@ -65,7 +66,7 @@ public class CellServiceImpl extends ServiceImpl<CellMapper, Cell> implements Ce
 
 
     @Override
-    public boolean updateOpen(String id, Integer set, Integer get,boolean isRoot) {
+    public boolean updateOpen(String id, Integer set, Integer get, boolean isRoot) {
 
         if(isRoot)
             openIdList.clear();
@@ -76,6 +77,7 @@ public class CellServiceImpl extends ServiceImpl<CellMapper, Cell> implements Ce
         Cell cell;
         try {
             cell = super.getOne(queryWrapper);
+            if(cell==null) return true;
         }catch (StackOverflowError e){
             System.out.println("StackOverflowError");
             System.out.println(id);
@@ -90,6 +92,27 @@ public class CellServiceImpl extends ServiceImpl<CellMapper, Cell> implements Ce
             UpdateWrapper<Cell> updateWrapper = new UpdateWrapper<>();
             updateWrapper.in("id", openIdList);
             updateWrapper.set("open", set);
+            Map<String, Object> map = new HashMap<>();
+            if(openIdList.size()==1){
+                map.put("startRow", cell.getRow());
+                map.put("startCol", cell.getCol());
+                map.put("endRow", cell.getRow());
+                map.put("endCol", cell.getCol());
+            }else{
+                QueryWrapper<Cell> queryWrapper1 = new QueryWrapper<>();
+                queryWrapper1.in("id", openIdList);
+                queryWrapper1.select("min(row) as row","min(col) as col");
+                Cell min= super.getOne(queryWrapper1);
+                map.put("startRow", min.getRow());
+                map.put("startCol", min.getCol());
+                QueryWrapper<Cell> queryWrapper2 = new QueryWrapper<>();
+                queryWrapper2.in("id", openIdList);
+                queryWrapper2.select("max(row) as row","max(col) as col");
+                Cell max= super.getOne(queryWrapper2);
+                map.put("endRow", max.getRow());
+                map.put("endCol", max.getCol());
+            }
+            echoChannel.sendtoAll(JSON.toJSONString(map));
             return super.update(updateWrapper);
         }
 

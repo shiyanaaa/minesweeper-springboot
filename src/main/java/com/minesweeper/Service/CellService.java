@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.minesweeper.Domain.Cell;
 
 import java.util.List;
+import java.util.Map;
 
 public interface CellService extends IService<Cell> {
     void removeAll();
@@ -12,5 +13,5 @@ public interface CellService extends IService<Cell> {
     List<Cell> region(Integer startX, Integer startY, Integer rowNum, Integer colNum);
 
 
-    boolean updateOpen(String id, Integer set, Integer get,boolean isRoot);
+    boolean updateOpen(String id, Integer set, Integer get, boolean isRoot);
 }
