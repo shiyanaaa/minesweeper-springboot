@@ -2,7 +2,6 @@ package com.minesweeper.Service.impl;
 
 import cn.hutool.core.collection.ListUtil;
 import com.alibaba.fastjson2.JSON;
-import com.alibaba.fastjson.serializer.SerializerFeature;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -21,10 +20,12 @@ import java.util.*;
 @Service
 public class CellServiceImpl extends ServiceImpl<CellMapper, Cell> implements CellService {
     private final HashSet<String> openIdList = new HashSet<>();
+
     @Override
     public void removeAll() {
         super.remove(null);
     }
+
     @Resource
     EchoChannel echoChannel;
     @Resource
@@ -42,17 +43,52 @@ public class CellServiceImpl extends ServiceImpl<CellMapper, Cell> implements Ce
                 cell.setRow(i);
                 cell.setValue(CellValueEnum.Empty);
                 cell.setOpen(CellOpenEnum.CLOSE);
+                cell.setId(Long.toString(IdWorker.getId(cell)));
                 cellList.add(cell);
+                cell.setIdsSet(new HashSet<>());
             }
             cells.add(cellList);
         }
         this.bomb(cells, row, col, row * col / 5);
         this.retrieval(cells);
+        this.setIdsSet(cells);
+
         List<Cell> allList = this.flatten(cells);
+        this.setIds(allList);
         List<List<Cell>> partition = ListUtil.partition(allList, 10000);
         partition.forEach(list -> cellMapper.insertBatch(list));
         return true;
 
+    }
+
+    private void setIds(List<Cell> allList) {
+        for (Cell cell : allList) {
+            cell.setIds(String.join(",", cell.getIdsSet()));
+        }
+    }
+
+    private void setIdsSet(List<List<Cell>> cells) {
+        for(int i=0;i<cells.size();i++){
+            for(int j=0;j<cells.get(i).size();j++){
+                if(cells.get(i).get(j).getValue()==0)
+                    findAdjacentZeros(cells,i,j);
+            }
+        }
+    }
+
+    private void findAdjacentZeros(List<List<Cell>> cells,int row,int col) {
+        int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+        for (int[] dir : directions) {
+            int newRow = row + dir[0];
+            int newCol = col + dir[1];
+
+            if (newRow >= 0 && newRow < cells.size() && newCol >= 0 && newCol < cells.get(0).size() && cells.get(newRow).get(newCol).getValue()== 0) {
+                Set<String> idsSet = cells.get(row).get(col).getIdsSet();
+                idsSet.add(cells.get(newRow).get(newCol).getId());
+                idsSet.addAll(cells.get(newRow).get(newCol).getIdsSet());
+                cells.get(row).get(col).setIdsSet(idsSet);
+            }
+        }
     }
 
     @Override
@@ -67,56 +103,22 @@ public class CellServiceImpl extends ServiceImpl<CellMapper, Cell> implements Ce
 
     @Override
     public boolean updateOpen(String id, Integer set, Integer get, boolean isRoot) {
-
-        if(isRoot)
-            openIdList.clear();
-        if(openIdList.contains(id)) return false;
         QueryWrapper<Cell> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("id", id);
         queryWrapper.eq("open", get);
-        Cell cell;
-        try {
-            cell = super.getOne(queryWrapper);
-            if(cell==null) return true;
-        }catch (StackOverflowError e){
-            System.out.println("StackOverflowError");
-            System.out.println(id);
-            return false;
-        }
-
-        openIdList.add(id);
-        if(!Objects.isNull(cell)&& Objects.equals(set, CellOpenEnum.OPEN)&& cell.getValue() == 0)
-            chainOpen(cell);
-
-        if(openIdList.size()!=0&&isRoot){
+        Cell cell=super.getOne(queryWrapper);
+        if(cell==null) return false;
+        if(cell.getValue()!=0){
             UpdateWrapper<Cell> updateWrapper = new UpdateWrapper<>();
-            updateWrapper.in("id", openIdList);
+            updateWrapper.eq("id", id);
             updateWrapper.set("open", set);
-            Map<String, Object> map = new HashMap<>();
-            if(openIdList.size()==1){
-                map.put("startRow", cell.getRow());
-                map.put("startCol", cell.getCol());
-                map.put("endRow", cell.getRow());
-                map.put("endCol", cell.getCol());
-            }else{
-                QueryWrapper<Cell> queryWrapper1 = new QueryWrapper<>();
-                queryWrapper1.in("id", openIdList);
-                queryWrapper1.select("min(row) as row","min(col) as col");
-                Cell min= super.getOne(queryWrapper1);
-                map.put("startRow", min.getRow());
-                map.put("startCol", min.getCol());
-                QueryWrapper<Cell> queryWrapper2 = new QueryWrapper<>();
-                queryWrapper2.in("id", openIdList);
-                queryWrapper2.select("max(row) as row","max(col) as col");
-                Cell max= super.getOne(queryWrapper2);
-                map.put("endRow", max.getRow());
-                map.put("endCol", max.getCol());
-            }
-            echoChannel.sendtoAll(JSON.toJSONString(map));
             return super.update(updateWrapper);
         }
+        UpdateWrapper<Cell> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.in("id", Arrays.asList(cell.getIds().split(",")));
+        updateWrapper.set("open", set);
 
-        return false;
+        return super.update(updateWrapper);
     }
 
     //    连锁开启，当当前格子value为0是，需要开启周围的格子
@@ -141,8 +143,8 @@ public class CellServiceImpl extends ServiceImpl<CellMapper, Cell> implements Ce
 
 
         openList.forEach(cellItem -> {
-            if(!openIdList.contains(cellItem.getId()))
-                updateOpen(cellItem.getId(), CellOpenEnum.OPEN, CellOpenEnum.CLOSE,false);
+            if (!openIdList.contains(cellItem.getId()))
+                updateOpen(cellItem.getId(), CellOpenEnum.OPEN, CellOpenEnum.CLOSE, false);
         });
     }
 

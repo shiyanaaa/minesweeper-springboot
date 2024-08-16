@@ -13,9 +13,9 @@ public interface CellMapper extends BaseMapper<Cell> {
     @Insert({
             "<script>",
             "insert",
-            "into cell(id,row,col,open,value) values",
+            "into cell(id,row,col,open,value,ids) values",
             "<foreach collection='list' item='item' separator=',' >",
-            "(#{item.id},#{item.row},#{item.col},#{item.open},#{item.value})",
+            "(#{item.id},#{item.row},#{item.col},#{item.open},#{item.value},#{item.ids})",
             "</foreach>",
             "</script>"
     })
